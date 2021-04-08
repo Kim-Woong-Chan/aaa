@@ -1131,8 +1131,10 @@ public:
         priceY_ += R;
         break;
       }
-      if (priceX_ < 0 || priceX_ >= width_ || priceY_ < 0 || priceY_ >= height_)  // led벗어나면 초기화
-        return;
+      if (priceX_ < 0 || priceX_ >= width_ || priceY_ < 0 || priceY_ >= height_){  // led벗어나면 초기화
+        priceX_= 0;
+        priceY_= height_/2;
+      }
       updatePixel(priceX_, priceY_);
       usleep(delay_ms_ * 1000);
     }
@@ -1155,6 +1157,165 @@ private:
   int** values_;
   int priceX_;
   int priceY_;
+  int delay_ms_;
+  int width_;
+  int height_;
+};
+
+
+
+// Donghak's ant ver.2
+// Contributed by: WoongChan
+class Investing2 : public DemoRunner {
+public:
+  Investing2(Canvas *m, int delay_ms=500)
+    : DemoRunner(m), delay_ms_(delay_ms) {
+    width_ = canvas()->width();
+    height_ = canvas()->height();
+    values_ = new int*[width_];      //*는 2차원배열을 위한 떡밥
+    for (int x=0; x<width_; ++x) {
+      values_[x] = new int[height_];  //모든 경우의 xy좌표를 2차원배열로 만들었음
+    }
+  }
+
+  ~Investing2() {
+    for (int x=0; x<width_; ++x) {
+      delete [] values_[x];
+    }
+    delete [] values_;
+  }
+
+
+
+  void Run() override {
+    priceX_ = 2;
+    priceY_ = height_/2;              //(2,7)에서 시작
+    for (int x=0; x<width_; ++x) {
+      for (int y=0; y<height_; ++y) {
+        values_[x][y] = 0;
+        canvas()->SetPixel(x, y, 0, 0, 0); //초기 바탕색은 검정, 초기 values값 0
+      }
+    }
+    int bar[10]={0};  // bar[]= {0,0,0,0,0,0,0,0,0,0}
+    srand(time(NULL));
+    while (!interrupt_received) {
+      for(int n=0; n<10; n++){
+        int h = rand()%2;
+        if(h==0)
+          h = h-1;  // h = -1,1
+        bar[n] = priceY_;               //시가
+        oldY_ = priceY_;                //직전가
+        priceY_ += h;                   //첫번째 이동
+        REset_();
+        values_[priceX_][priceY_] = 2;  //현재값은 3칸
+        if(priceY_ >> oldY_)
+          values_[priceX_][oldY_] = 2;  //올라가면 old 3칸
+        else
+          values_[priceX_][oldY_] = 1;  //내려가면 old 1칸
+        update_color_(bar[n], priceY_);                //빨강파랑 결정
+        usleep(delay_ms_ * 1000);
+       
+        for(int p=0; p<4; p++){        //두번째~다섯번째 이동
+          int i = rand()%2;
+          if(i==0)
+            i = i-1;
+          oldY_ = priceY_;
+          priceY_ += i;
+          REset_();
+          values_[priceX_][priceY_] = 2;  //현재값은 3칸
+          deciding_values_(bar[n], priceX_, priceY_, oldY_); // 칸수 결정
+          update_color_(bar[n], priceY_);  // 색깔 결정
+          usleep(delay_ms_ * 1000);
+        }
+        REset_();
+        int j = rand()%3-1; // -1~1
+        priceX_ += 3;
+        priceY_ += j;           // 다음 bar로 넘어감 
+      }
+    }
+
+private:
+  void deciding_values_(int w, int x, int y, int z){ //w=bar x=priceX y=priceY z=oldY
+    if(z <= w){
+      if(y <= w){
+        if(z << y)
+          values_[x][z] = 1;
+        else
+          values_[x][z] = 2;
+      }
+      else{
+        values_[x][z] = 1;
+      }
+    }
+    else{
+      if(y >> w){
+        if(z >> y)
+          values_[x][z] = 1;
+        else
+          values_[x][z] = 2;
+      }
+      else{
+        values_[x][z] = 2;
+      }
+    }
+  }  
+                           // (oldY_ <= bar[n]) & (priceY_ <= bar[n]) & (oldY_ >> priceY_) --> values_[priceX_][oldY_] = 2
+                           // (oldY_ <= bar[n]) & (priceY_ <= bar[n]) & (oldY_ << priceY_) --> values_[priceX_][oldY_] = 1
+                           // (oldY_ >> bar[n]) & (priceY_ >> bar[n]) & (oldY_ >> priceY_) --> values_[priceX_][oldY_] = 1
+                           // (oldY_ >> bar[n]) & (priceY_ >> bar[n]) & (oldY_ << priceY_) --> values_[priceX_][oldY_] = 2
+                           // (oldY_ <= bar[n]) & (priceY_ >> bar[n]) --> values_[priceX_][oldY_] = 1
+                           // (oldY_ >> bar[n]) & (priceY_ <= bar[n]) --> values_[priceX_][oldY_] = 2
+  
+  void update_color_(int w, int y){ // w=bar y=priceY
+    if(y <= w){
+     for (int x=3*n; x<3*(n+1); ++x) {
+        for (int y=0; y<height_; ++y) {
+          if (values_[x][y] == 1)
+            canvas()->SetPixel(x, y, 220, 0, 0);
+          else if(valus_[x][y] == 2){
+            for(int a=0; a<3; ++a){
+              canvas()->SetPixel(x-1+a, y, 220, 0, 0);
+            }
+          }
+          else
+            canvas()->SetPixel(x, y, 0, 0, 0);
+        }
+      }
+    }
+    else{
+      for (int x=3*n; x<3*(n+1); ++x) {
+        for (int y=0; y<height_; ++y) {
+          if (values_[x][y] == 1)
+            canvas()->SetPixel(x, y, 0, 0, 230);
+          else if(valus_[x][y] == 2){
+            for(int a=0; a<3; ++a){
+              canvas()->SetPixel(x-1+a, y, 0, 0, 230);
+            }
+          }
+          else
+            canvas()->SetPixel(x, y, 0, 0, 0);
+        }
+      }    
+    }
+  } 
+                           // for(x=3*n; x<3*(n+1); ++x)
+                           // for(y=0; y<height; ++y)
+                           // (priceY_ <= bar[n]) & (value == 1) --> SetPixel(x, y, 220, 0, 0)
+                           // (priceY_ <= bar[n]) & (value == 2) --> for(a=0; a<3; a++){SetPixel(x-1+a, y, 220, 0, 0)
+                           // (priceY_ >> bar[n]) & (value == 1) --> SetPixel(x, y, 0, 0, 230)
+                           // (priceY_ >> bar[n]) & (value == 2) --> for(a=0; a<3; a++){SetPixel(x-1+a, y, 0, 0, 230)
+
+  void REset_(){
+     if (priceX_ < 0 || priceX_ >= width_ || priceY_ < 0 || priceY_ >= height_){ 
+       break;
+     }
+   }  // 벗어나면 while문 초기로 리셋
+
+
+  int** values_;
+  int priceX_;
+  int priceY_;
+  int oldY_;
   int delay_ms_;
   int width_;
   int height_;
